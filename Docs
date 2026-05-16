@@ -1,0 +1,15 @@
+﻿Ro4ot-V2, it's second version of my own project,
+to controll robots by your computer, and soon by mobile
+
+
+Tree:
+RobotsProgram -> All C++ things for robot in here only thing that should catch your eye is template (soon)
+                 You can add template to your C++ robot and start Ro4ot
+
+core -> every python programs and modules
+jsons -> Every config
+jsons/RobotUnits -> Here you have list of every robots, why it is not one file?
+                    Cause if two programs work on one file, they will have problems
+
+static -> all css and js (soon)
+templates -> html templates :D
