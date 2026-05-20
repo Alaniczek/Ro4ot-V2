@@ -1,31 +1,67 @@
-﻿from fastapi import FastAPI, Form
-from fastapi.responses import HTMLResponse
-import socket
+﻿import asyncio
+import json
+from fastapi import FastAPI, WebSocket
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
-UDP_IP = "192.168.1.100"
-UDP_PORT = 4210
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-@app.get("/", response_class=HTMLResponse)
-async def form_page():
-    return """
-    <html>
-        <body>
-            <h2>Panel sterowania Ro4ot</h2>
-            <form action="/send" method="post">
-                <input type="text" name="command" autofocus>
-                <button type="submit">Wyslij UDP</button>
-            </form>
-        </body>
-    </html>
-    """
+def load_config():
+    try:
+        with open("config.json", "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        default_config = {"predkosc": 100, "tryb": "auto"}
+        with open("config.json", "w") as f:
+            json.dump(default_config, f, indent=4)
+        return default_config
 
 
-@app.post("/send")
-async def send_to_robot(command: str = Form(...)):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.sendto(command.encode(), (UDP_IP, UDP_PORT))
+def save_config(data):
+    with open("config.json", "w") as f:
+        json.dump(data, f, indent=4)
 
-    return {"wyslano": command, "cel": UDP_IP}
+
+async def moja_funkcja_w_tle():
+    while True:
+        print("Robię coś innego w tle!")
+        await asyncio.sleep(5)
+
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(moja_funkcja_w_tle())
+
+
+@app.get("/")
+async def get():
+    return FileResponse("templates/index.html")
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        message = json.loads(data)
+
+        if message.get("step") == 1:
+            message["step"] = 2
+            message["python_added"] = "Odebrano z HTML, leci z powrotem do JS!"
+            await websocket.send_text(json.dumps(message))
+
+        elif message.get("step") == 3:
+            print("--- LOGI Z PYTHONA ---")
+            print("Ostateczny JSON:", message)
+            print("----------------------")
+
+        elif message.get("akcja") == "wczytaj":
+            cfg = load_config()
+            await websocket.send_text(json.dumps({"akcja": "zaladowano_config", "dane": cfg}))
+
+        elif message.get("akcja") == "zapisz":
+            save_config(message.get("dane", {}))
+            await websocket.send_text(json.dumps({"akcja": "info", "tekst": "Plik config.json został zapisany!"}))

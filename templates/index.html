@@ -1,10 +1,22 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Title</title>
+    <meta charset="utf-8">
 </head>
 <body>
+    <button onclick="startPingPong()">Uruchom obieg (Python -> JS -> Python)</button>
+    <div id="output">Czekam na start...</div>
 
+    <hr>
+
+    <h3>Edytor config.json</h3>
+    <button onclick="loadConfig()">Wczytaj JSON z serwera</button>
+    <br><br>
+    <textarea id="configEditor" rows="10" cols="40" placeholder="Tutaj pojawi się JSON..."></textarea>
+    <br><br>
+    <button onclick="saveConfig()">Zapisz JSON na serwerze</button>
+    <div id="configStatus" style="color: blue; margin-top: 10px;"></div>
+
+    <script src="/static/script.js"></script>
 </body>
 </html>
