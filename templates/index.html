@@ -16,6 +16,10 @@
     <br><br>
     <button onclick="saveConfig()">Zapisz JSON na serwerze</button>
     <div id="configStatus" style="color: blue; margin-top: 10px;"></div>
+    <br>
+    <input type="text" name="ROBOT_IP" id="ROBOT_IP">
+    <input type="number" name="ROBOT_PORT" id="ROBOT_PORT">
+    <input type="submit" value="Send" onclick="selectAndPingRobot()">
 
     <script src="/static/script.js"></script>
 </body>

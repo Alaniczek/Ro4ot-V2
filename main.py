@@ -1,67 +1,104 @@
 ﻿import asyncio
 import json
-from fastapi import FastAPI, WebSocket
+from contextlib import asynccontextmanager
+from typing import Dict, Any
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-app = FastAPI()
+from core.RobotManager import RobotManager
+from core.RobotKit import RobotKit
+from core.CommandManager import CommandManager
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# CONFIGS ☆*: .｡. o(≧▽≦)o .｡.:*☆
+CONFIG_PATH = "jsons/config.json"
+COMMANDS_PATH = "jsons/commands.json"
 
+robot_manager = RobotManager()
 
-def load_config():
+def load_config() -> Dict[str, Any]:
     try:
-        with open("config.json", "r") as f:
+        with open(CONFIG_PATH, "r") as f:
             return json.load(f)
     except FileNotFoundError:
         default_config = {"predkosc": 100, "tryb": "auto"}
-        with open("config.json", "w") as f:
-            json.dump(default_config, f, indent=4)
+        save_config(default_config)
         return default_config
 
-
-def save_config(data):
-    with open("config.json", "w") as f:
+def save_config(data: Dict[str, Any]):
+    with open(CONFIG_PATH, "w") as f:
         json.dump(data, f, indent=4)
 
-
-async def moja_funkcja_w_tle():
+# Background workers *^____^*
+async def background_worker():
     while True:
-        print("Robię coś innego w tle!")
+        #LOGIC IN THE BACKGROUND PLACE
         await asyncio.sleep(5)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(background_worker())
+    yield
+    task.cancel()
 
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(moja_funkcja_w_tle())
-
+# Main part (●'◡'●)
+app = FastAPI(lifespan=lifespan)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
-async def get():
+async def index():
     return FileResponse("templates/index.html")
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    while True:
-        data = await websocket.receive_text()
-        message = json.loads(data)
+    print("[WS] Połączono klienta.")
+    
+    try:
+        while True:
+            raw_data = await websocket.receive_text()
+            message = json.loads(raw_data)
+            action = message.get("akcja")
 
-        if message.get("step") == 1:
-            message["step"] = 2
-            message["python_added"] = "Odebrano z HTML, leci z powrotem do JS!"
-            await websocket.send_text(json.dumps(message))
+            if action == "ping":
+                await websocket.send_json({
+                    "akcja": "pong",
+                    "python_added": "Odebrano z HTML, leci z powrotem do JS!"
+                })
 
-        elif message.get("step") == 3:
-            print("--- LOGI Z PYTHONA ---")
-            print("Ostateczny JSON:", message)
-            print("----------------------")
+            elif action == "wczytaj":
+                cfg = load_config()
+                await websocket.send_json({"akcja": "zaladowano_config", "dane": cfg})
 
-        elif message.get("akcja") == "wczytaj":
-            cfg = load_config()
-            await websocket.send_text(json.dumps({"akcja": "zaladowano_config", "dane": cfg}))
+            elif action == "zapisz":
+                save_config(message.get("dane", {}))
+                await websocket.send_json({"akcja": "info", "tekst": "Konfiguracja zapisana!"})
 
-        elif message.get("akcja") == "zapisz":
-            save_config(message.get("dane", {}))
-            await websocket.send_text(json.dumps({"akcja": "info", "tekst": "Plik config.json został zapisany!"}))
+            elif action == "ping_robot":
+                ip = message.get("ip")
+                port = int(message.get("port"))
+                
+                robot_kit = RobotKit(ip, port, "Unknown", "Manual")
+                robot_manager.selectRobotByKit(robot_kit)
+                robot_manager.command_manager = CommandManager(ip, port, COMMANDS_PATH)
+                
+                print(f"[UDP] Wysyłam PING do robota {ip}:{port}")
+                robot_manager.command_manager.send_command("ping")
+                
+                await websocket.send_json({
+                    "akcja": "info",
+                    "tekst": f"Wysłano UDP 'ping' do {ip}:{port}"
+                })
+
+            elif action == "log":
+                print(f"[LOG] {message}")
+
+            else:
+                print(f"[WS] Nieznana akcja: {action}")
+
+    except WebSocketDisconnect:
+        print("[WS] Rozłączono klienta.")
+    except Exception as e:
+        print(f"[ERR] Błąd WebSocketa: {e}")

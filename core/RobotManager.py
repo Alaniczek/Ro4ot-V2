@@ -2,17 +2,14 @@
 from pathlib import Path
 import json
 
-from RobotKit import RobotKit
-from CommandManager import CommandManager
+from core.RobotKit import RobotKit
+from core.CommandManager import CommandManager
 
 class RobotManager:
     def __init__(self):
         self.selected_robot: Optional[RobotKit] = None
         self.command_manager: Optional[CommandManager] = None
-        self.robot_units_path: str = '../../Jsons/robotUnits'
-
-    def changePath(self, path: str):
-        self.robot_units_path = path
+        self.robot_units_path: str = 'jsons/robotUnits'
 
     def selectRobotByKit(self, robot: RobotKit):
         self.selected_robot = robot

@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# IDEs
+.idea/
+.vscode/
+
+# Trash/Example (optional, but good if you want to keep repo clean)
+# TrashAndExample/

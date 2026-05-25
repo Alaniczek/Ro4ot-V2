@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+websockets
+pydantic
+anyio
+starlette
+typing_extensions
