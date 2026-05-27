@@ -87,53 +87,62 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     active_websockets.add(websocket)
     print("[WS] Połączono klienta.")
-    
+
     try:
         while True:
-            raw_data = await websocket.receive_text()
-            message = json.loads(raw_data)
+            try:
+                message = await websocket.receive_json()
+            except ValueError:
+                print("[WS] Otrzymano nieprawidłowy JSON.")
+                continue
+
             action = message.get("akcja")
 
-            if action == "ping":
-                await websocket.send_json({
-                    "akcja": "pong",
-                    "python_added": "Odebrano z HTML, leci z powrotem do JS!"
-                })
+            match action:
+                case "ping":
+                    await websocket.send_json({
+                        "akcja": "pong",
+                        "python_added": "Odebrano z HTML, leci z powrotem do JS!"
+                    })
 
-            elif action == "wczytaj":
-                cfg = load_config()
-                await websocket.send_json({"akcja": "zaladowano_config", "dane": cfg})
+                case "wczytaj":
+                    await websocket.send_json({
+                        "akcja": "zaladowano_config",
+                        "dane": load_config()
+                    })
 
-            elif action == "zapisz":
-                save_config(message.get("dane", {}))
-                await websocket.send_json({"akcja": "info", "tekst": "Konfiguracja zapisana!"})
+                case "zapisz":
+                    save_config(message.get("dane", {}))
+                    await websocket.send_json({
+                        "akcja": "info",
+                        "tekst": "Konfiguracja zapisana!"
+                    })
 
-            elif action == "ping_robot":
-                ip = message.get("ip")
-                port = int(message.get("port"))
-                
-                robot_kit = RobotKit(ip, port, "Unknown", "Manual")
-                robot_manager.selectRobotByKit(robot_kit)
-                robot_manager.command_manager = CommandManager(ip, port, COMMANDS_PATH)
-                
-                print(f"[UDP] Wysyłam PING do robota {ip}:{port}")
-                robot_manager.command_manager.send_command("ping")
-                
-                await websocket.send_json({
-                    "akcja": "info",
-                    "tekst": f"Wysłano UDP 'ping' do {ip}:{port}"
-                })
+                case "ping_robot":
+                    ip = message.get("ip")
+                    port = int(message.get("port"))
 
-            elif action == "log":
-                print(f"[LOG] {message}")
+                    robot_kit = RobotKit(ip, port, "Unknown", "Manual")
+                    robot_manager.selectRobotByKit(robot_kit)
+                    robot_manager.command_manager = CommandManager(ip, port, COMMANDS_PATH)
 
-            else:
-                print(f"[WS] Nieznana akcja: {action}")
+                    print(f"[UDP] Wysyłam PING do robota {ip}:{port}")
+                    robot_manager.command_manager.send_command("ping")
+
+                    await websocket.send_json({
+                        "akcja": "info",
+                        "tekst": f"Wysłano UDP 'ping' do {ip}:{port}"
+                    })
+
+                case "log":
+                    print(f"[LOG] {message}")
+
+                case _:
+                    print(f"[WS] Nieznana akcja: {action}")
 
     except WebSocketDisconnect:
         print("[WS] Rozłączono klienta.")
     except Exception as e:
         print(f"[ERR] Błąd WebSocketa: {e}")
     finally:
-        if websocket in active_websockets:
-            active_websockets.remove(websocket)
+        active_websockets.discard(websocket)
