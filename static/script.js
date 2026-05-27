@@ -17,6 +17,9 @@ ws.onmessage = function(event) {
     else if (akcja === "info") {
         document.getElementById("configStatus").innerText = message.tekst;
     }
+    else if (akcja === "robot_status") {
+        document.getElementById("output").innerText = `Robot ${message.ip} mówi: ${message.status}`;
+    }
 };
 
 function selectAndPingRobot()
