@@ -2,8 +2,10 @@
 import json
 from contextlib import asynccontextmanager
 from typing import Dict, Any, Set
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -20,6 +22,7 @@ robot_manager = RobotManager()
 response_handler = ResponseHandler(robot_manager)
 active_websockets: Set[WebSocket] = set()
 
+
 def load_config() -> Dict[str, Any]:
     try:
         with open(CONFIG_PATH, "r") as f:
@@ -28,6 +31,7 @@ def load_config() -> Dict[str, Any]:
         default_config = {"predkosc": 100, "tryb": "auto"}
         save_config(default_config)
         return default_config
+
 
 def save_config(data: Dict[str, Any]):
     with open(CONFIG_PATH, "w") as f:
@@ -50,14 +54,16 @@ async def on_robot_response(ip: str, message: str):
     if active_websockets:
         await asyncio.gather(*(send_to_ws(ws) for ws in list(active_websockets)))
 
+
 # Background workers *^____^*
 async def background_worker():
     while True:
         await asyncio.sleep(5)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("RO4OT-V2: STARTING UDP LISTENER")
     try:
         # Start the UDP Response Handler on port 17145
@@ -66,20 +72,46 @@ async def lifespan(app: FastAPI):
         print("RO4OT-V2: SUCCESS - Listening on 17145")
     except Exception as e:
         print(f"RO4OT-V2: ERROR - Could not start UDP listener: {e}")
-    print("="*50 + "\n")
-    
+    print("=" * 50 + "\n")
+
     task = asyncio.create_task(background_worker())
     yield
     task.cancel()
     response_handler.stop()
 
+
 # Main part (●'◡'●)
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 @app.get("/")
 async def index():
     return FileResponse("templates/index.html")
+
+
+@app.get("/robot_list")
+def start_robot_list() -> list[Dict[str, Any]]:
+    robot_list = []
+    dir_to_robot = Path('jsons/robotUnits')
+
+    if dir_to_robot.exists():
+        for file_path in dir_to_robot.glob('*.json'):
+            with open(file_path, 'r', encoding='utf-8-sig') as f:
+                robot_list.append({
+                    "robot_name": file_path.stem,
+                    "content": json.load(f)
+                })
+    return robot_list
 
 
 @app.websocket("/ws")

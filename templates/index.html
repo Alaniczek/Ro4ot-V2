@@ -4,6 +4,14 @@
     <meta charset="utf-8">
 </head>
 <body>
+    <script>
+        fetch('http://localhost:8000/robot_list')
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            console.log("test");
+         });
+    </script>
     <button onclick="startPingPong()">Uruchom obieg (Python -> JS -> Python)</button>
     <div id="output">Czekam na start...</div>
 

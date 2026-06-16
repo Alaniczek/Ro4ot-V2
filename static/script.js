@@ -55,3 +55,4 @@ function saveConfig() {
         document.getElementById("configStatus").innerText = "BŁĄD: Nieprawidłowy format JSON!";
     }
 }
+
